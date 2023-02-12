@@ -22,8 +22,6 @@ def decode_words(encodings, tokenizer):
         'words_token_indices': words_token_indices,
     }
 
-#print(decode_words(encodings, tokenizer))
-
 def encodings_words_indexof(encodings, needle: str or list, tokenizer):
     words = decode_words(encodings, tokenizer)
     matches = {}

@@ -45,7 +45,6 @@ class Perplexity:
                     if idx[0] >= begin_loc and idx[-1] < end_loc:
                         target_ids[:, idx[0]-begin_loc:idx[-1]-begin_loc+1] = -100
 
-            #print(target_ids)
             with torch.no_grad():
                 outputs = self.model(input_ids, labels=target_ids)
 
@@ -56,7 +55,6 @@ class Perplexity:
                 neg_log_likelihood = outputs.loss * trg_len
 
             nlls.append(neg_log_likelihood)
-            #print("trg_len", trg_len)
 
             prev_end_loc = end_loc
             if end_loc == seq_len:
