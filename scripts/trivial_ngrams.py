@@ -191,12 +191,15 @@ def main():
         # Extract trivially shared n-grams
         top_ngrams = Counter()
         for example in examples["ngrams"]:
-            frequencies = Counter([tuple(gram) for gram in example]) # convert lists to tuples
+            unpic_example = pickle.loads(example)
+            frequencies = Counter(unpic_example)
+            #frequencies = Counter([tuple(gram) for gram in example]) # convert lists to tuples
             most_common = dict(frequencies.most_common(k))
             top_ngrams += Counter(most_common)
-        top_ngrams = top_ngrams.most_common(k)
-        safe_top_ngrams = [[list(gram), c] for gram, c in top_ngrams] # convert tuples of tuple to lists of list
-        return {"top_ngrams": [safe_top_ngrams]}
+        most_common = dict(top_ngrams.most_common(k))
+        pic_top_ngrams = pickle.dumps(most_common)
+        #safe_top_ngrams = [[list(gram), c] for gram, c in top_ngrams] # convert tuples of tuple to lists of list
+        return {"top_ngrams": [pic_top_ngrams]}
 
     def calc_ngrams_function(examples):
         max_ngram = args.max_ngram
@@ -205,10 +208,11 @@ def main():
             all_ngrams = []
             for j in range(1, max_ngram+1):
                 n_grams = list(ngrams(example, j))
-                safe_n_grams = [list(gram) for gram in n_grams] # convert tuples to lists
-                all_ngrams.extend(safe_n_grams)
-
-            ngrams_list.append(all_ngrams)
+                #safe_n_grams = [list(gram) for gram in n_grams] # convert tuples to lists
+                #all_ngrams.extend(safe_n_grams)
+                all_ngrams.extend(n_grams)
+            pic_all_ngrams = pickle.dumps(all_ngrams)
+            ngrams_list.append(pic_all_ngrams)
         examples["ngrams"] = ngrams_list
         return examples
     
@@ -248,8 +252,9 @@ def main():
 
         top_ngrams = Counter()
         for example in top_ngrams_datasets["top_ngrams"]:
-            count_dict = {tuple(gram): c for gram, c in example} # convert lists of list to tuples of tuple
-            top_ngrams += Counter(count_dict)
+            unpic_count_dict = pickle.loads(example)
+            #count_dict = {tuple(gram): c for gram, c in example} # convert lists of list to tuples of tuple
+            top_ngrams += Counter(unpic_count_dict)
 
         data = dict(top_ngrams.most_common(args.num_top_ngrams))
         
