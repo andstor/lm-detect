@@ -111,12 +111,6 @@ def parse_args():
         default=3,
         help="The maximum ngram to calculate.",
     )
-    parser.add_argument(
-        "--num_proc",
-        type=int,
-        default=1,
-        help="The number of processes to use for data loading.",
-    )
 
     args = parser.parse_args()
 
@@ -161,8 +155,8 @@ def main():
 
     if args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            args.dataset_name, args.dataset_config_name)
+        raw_dataset = load_dataset(
+            args.dataset_name, args.dataset_config_name, split=args.dataset_split)
 
     
     if args.tokenizer_name:
@@ -176,7 +170,7 @@ def main():
     tokenizer.pad_token = tokenizer.eos_token
 
     # Preprocessing the datasets.
-    column_names = raw_datasets[args.dataset_split].column_names
+    column_names = raw_dataset.column_names
 
     if args.text_column_name is not None:
         text_column_name = args.text_column_name
@@ -221,47 +215,63 @@ def main():
         return tokenizer(examples[text_column_name])
 
     with accelerator.main_process_first():
-        tokenized_datasets = raw_datasets.map(
+        tokenized_dataset = raw_dataset.map(
             tokenize_function,
             batched=True,
             num_proc=args.preprocessing_num_workers,
-            remove_columns=raw_datasets[args.dataset_split].column_names,
+            remove_columns=raw_dataset.column_names,
             load_from_cache_file=not args.overwrite_cache,
             keep_in_memory=False,
             desc="Running tokenizer on dataset",
         )
-        ngrams_datasets = tokenized_datasets.map(
+        ngrams_dataset = tokenized_dataset.map(
             calc_ngrams_function,
             batched=True,
-            remove_columns=tokenized_datasets[args.dataset_split].column_names,
+            remove_columns=tokenized_dataset.column_names,
             num_proc=args.preprocessing_num_workers,
             load_from_cache_file=not args.overwrite_cache,
             keep_in_memory=False,
             desc=f"Calculating ngrams of order 1 to {args.max_ngram}",
         )
         
-        top_ngrams_datasets = ngrams_datasets.map(
+        top_ngrams_dataset = ngrams_dataset.map(
             top_ngrams_function,
             batched=True,
             num_proc=args.preprocessing_num_workers,
             load_from_cache_file=not args.overwrite_cache,
-            remove_columns=ngrams_datasets[args.dataset_split].column_names,
+            remove_columns=ngrams_dataset.column_names,
             keep_in_memory=False,
             desc="Calculating top ngrams",
         )
 
+
         top_ngrams = Counter()
-        for example in top_ngrams_datasets["top_ngrams"]:
+        for example in top_ngrams_dataset["top_ngrams"]:
             unpic_count_dict = pickle.loads(example)
             #count_dict = {tuple(gram): c for gram, c in example} # convert lists of list to tuples of tuple
             top_ngrams += Counter(unpic_count_dict)
 
-        data = dict(top_ngrams.most_common(args.num_top_ngrams))
+        # Decode the token ngrams to string ngrams
+        encoded_dict = dict(top_ngrams.most_common(args.num_top_ngrams))
+        tokens_dict = {}
+        for token_ngram, count in encoded_dict.items():
+            decoded_gram = tokenizer.convert_ids_to_tokens(token_ngram)
+            tokens_dict[tuple(decoded_gram)] = count
+        
+        decoded_dict = {}
+        for token_ngram, count in encoded_dict.items():
+            decoded_gram = tokenizer.batch_decode(token_ngram)
+            decoded_dict[tuple(decoded_gram)] = count
         
         # Save data to pickle
-        output_file = Path(args.output_dir) / f"trivial_ngrams_{args.split_name}.pkl"
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        output_file.write_bytes(pickle.dumps(data))
+        output_file = Path(args.output_dir) / f"trivial_ngrams_.ids.{args.dataset_split}.pkl"
+        output_file.write_bytes(pickle.dumps(encoded_dict))
+
+        output_file = Path(args.output_dir) / f"trivial_ngrams_.tokens.{args.dataset_split}.pkl"
+        output_file.write_bytes(pickle.dumps(tokens_dict))
+
+        output_file = Path(args.output_dir) / f"trivial_ngrams_.text.{args.dataset_split}.pkl"
+        output_file.write_bytes(pickle.dumps(decoded_dict))
 
 if __name__ == "__main__":
     main()
