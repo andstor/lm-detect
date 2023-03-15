@@ -24,8 +24,7 @@ import os
 from collections import Counter
 from nltk.util import ngrams
 import pickle
-from ast import literal_eval
-
+import json
 import logging
 
 from accelerate.logging import get_logger
@@ -192,11 +191,12 @@ def main():
         # Extract trivially shared n-grams
         top_ngrams = Counter()
         for example in examples["ngrams"]:
-            frequencies = Counter([tuple(gram) for gram in example])
+            frequencies = Counter([tuple(gram) for gram in example]) # convert lists to tuples
             most_common = dict(frequencies.most_common(k))
             top_ngrams += Counter(most_common)
-        
-        return {"top_ngrams": [str(dict(top_ngrams))]}
+        top_ngrams = top_ngrams.most_common(k)
+        safe_top_ngrams = [[list(gram), c] for gram, c in top_ngrams] # convert tuples of tuple to lists of list
+        return {"top_ngrams": [safe_top_ngrams]}
 
     def calc_ngrams_function(examples):
         max_ngram = args.max_ngram
@@ -205,7 +205,9 @@ def main():
             all_ngrams = []
             for j in range(1, max_ngram+1):
                 n_grams = list(ngrams(example, j))
-                all_ngrams.extend(n_grams)
+                safe_n_grams = [list(gram) for gram in n_grams] # convert tuples to lists
+                all_ngrams.extend(safe_n_grams)
+
             ngrams_list.append(all_ngrams)
         examples["ngrams"] = ngrams_list
         return examples
@@ -231,7 +233,7 @@ def main():
             num_proc=args.preprocessing_num_workers,
             load_from_cache_file=not args.overwrite_cache,
             keep_in_memory=False,
-            desc="Calculating ngrams",
+            desc=f"Calculating ngrams of order 1 to {args.max_ngram}",
         )
         
         top_ngrams_datasets = ngrams_datasets.map(
@@ -246,7 +248,8 @@ def main():
 
         top_ngrams = Counter()
         for example in top_ngrams_datasets["top_ngrams"]:
-            top_ngrams += literal_eval(example[0])
+            count_dict = {tuple(gram): c for gram, c in example} # convert lists of list to tuples of tuple
+            top_ngrams += Counter(count_dict)
 
         data = dict(top_ngrams.most_common(args.num_top_ngrams))
         
