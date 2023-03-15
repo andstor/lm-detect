@@ -264,13 +264,13 @@ def main():
             decoded_dict[tuple(decoded_gram)] = count
         
         # Save data to pickle
-        output_file = Path(args.output_dir) / f"trivial_ngrams_.ids.{args.dataset_split}.pkl"
+        output_file = Path(args.output_dir) / f"trivial_ngrams.ids.{args.dataset_split}.pkl"
         output_file.write_bytes(pickle.dumps(encoded_dict))
 
-        output_file = Path(args.output_dir) / f"trivial_ngrams_.tokens.{args.dataset_split}.pkl"
+        output_file = Path(args.output_dir) / f"trivial_ngrams.tokens.{args.dataset_split}.pkl"
         output_file.write_bytes(pickle.dumps(tokens_dict))
 
-        output_file = Path(args.output_dir) / f"trivial_ngrams_.text.{args.dataset_split}.pkl"
+        output_file = Path(args.output_dir) / f"trivial_ngrams.text.{args.dataset_split}.pkl"
         output_file.write_bytes(pickle.dumps(decoded_dict))
 
 if __name__ == "__main__":
